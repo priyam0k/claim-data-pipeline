@@ -1,0 +1,40 @@
+# Name of the workflow, which will appear in the "Actions" tab of your GitHub repo
+name: Run Daily Claims ETL
+
+# Controls when the workflow will run
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  
+  # Runs the workflow on a schedule (using cron syntax)
+  # This schedule runs at 01:00 UTC every day.
+  schedule:
+    - cron: '0 1 * * *'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # The "build-and-run" job
+  build-and-run:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up a PostgreSQL database service directly in the workflow
+      - name: Start PostgreSQL Service
+        run: |
+          sudo docker run --name claims-db -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d postgres
+          sleep 10 # Give the database a moment to initialize
+
+      # Step 3: Build the Docker image from the Dockerfile in our repository
+      - name: Build Docker Image
+        run: docker build -t claims-pipeline .
+
+      # Step 4: Run the ETL pipeline inside the container
+      # We use --network="host" so the container can connect to the postgres service on "localhost"
+      - name: Run ETL Pipeline
+        run: docker run --network="host" claims-pipeline
